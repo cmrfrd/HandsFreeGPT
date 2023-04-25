@@ -1,0 +1,66 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.245.0/containers/docker-existing-docker-compose
+// If you want to run as a non-root user in the container, see .devcontainer/docker-compose.yml.
+{
+	"name": "local-dev",
+	"hostRequirements": {
+		"cpus": 8,
+		"memory": "8gb"
+	},
+	"dockerComposeFile": [
+		"../docker-compose-dev.yml"
+	],
+	"remoteUser": "handsfreegpt",
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"[python]": {
+					"editor.tabSize": 4,
+					"editor.codeActionsOnSave": {
+						"source.fixAll.ruff": true,
+						"source.organizeImports.ruff": true
+					}
+				},
+				"ruff.organizeImports": true,
+				"git.ignoreMissingGitWarning": true,
+				"python.defaultInterpreterPath": "/opt/handsfreegpt/.venv/bin/python",
+				"python.formatting.blackPath": "/opt/handsfreegpt/.venv/bin/black",
+				"python.formatting.provider": "black",
+				"python.languageServer": "Default",
+				"python.linting.flake8Enabled": false,
+				"python.linting.mypyEnabled": true,
+				"python.linting.mypyPath": "/opt/handsfreegpt/.venv/bin/mypy",
+				"terminal.integrated.profiles.linux": {
+					"bash (container default)": {
+						"path": "/bin/bash",
+						"overrideName": true
+					}
+				},
+				"workbench.iconTheme": "vscode-icons"
+			},
+			"extensions": [
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				"ms-toolsai.jupyter-keymap",
+				"ms-toolsai.jupyter-renderers",
+				"ms-toolsai.jupyter",
+				"timonwong.shellcheck",
+				"vscode-icons-team.vscode-icons",
+				"wayou.vscode-todo-highlight",
+				"github.copilot",
+				"charliermarsh.ruff"
+			]
+		}
+	},
+	"service": "dev",
+	"userEnvProbe": "loginInteractiveShell",
+	"workspaceFolder": "/workspace",
+	"initializeCommand": "sh .devcontainer/initialize.sh",
+	"features": {
+		// "docker-in-docker": {
+		// 	"version": "latest",
+		// 	"moby": true,
+		// 	"dockerDashComposeVersion": "v1"
+		// }
+	}
+}

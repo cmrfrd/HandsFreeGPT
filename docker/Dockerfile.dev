@@ -1,0 +1,77 @@
+FROM python:3.10-slim
+
+## Top level args / env vars
+ARG USERNAME=handsfreegpt
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV DEBIAN_FRONTEND=noninteractive
+
+## Install gh
+RUN apt-get update -y \
+    && apt-get -y install \
+    curl \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt update \
+    && apt install gh -y
+
+## Apt based dependencies
+RUN apt-get update -y \
+    && apt-get upgrade -y \
+    && apt-get -y install \
+    curl \
+    build-essential \
+    npm \
+    cmake \
+    libssl-dev \
+    awscli \
+    g++ \
+    gcc \
+    gh \
+    git \
+    jq \
+    libpq-dev \
+    postgresql-client \
+    s3fs \
+    vim \
+    wget \
+    zsh \
+    chromium-driver \
+    firefox-esr \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+## Add fuse access to unprivledged user
+RUN sed -i '/user_allow_other/s/^#//g' /etc/fuse.conf
+
+## Create unpriv user
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && apt-get update \
+    && apt-get install -y sudo \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
+ENV PROJ_ROOT=/opt/handsfreegpt
+RUN mkdir -p ${PROJ_ROOT}/handsfreegpt && chown $USERNAME -R /opt/
+USER ${USERNAME}
+WORKDIR ${PROJ_ROOT}
+RUN python3 -m pip install --user pdm
+RUN python3 -m pdm self update
+COPY --chown=${USERNAME} pyproject.toml pdm.lock README.md ${PROJ_ROOT}
+RUN python3 -m pdm install --no-self -G :all
+COPY ./handsfreegpt/* ${PROJ_ROOT}/handsfreegpt
+RUN python3 -m pdm install
+
+# ## Add default entrypoint
+ENV SHELL /bin/bash
+COPY ./docker/entrypoint.sh /
+RUN sudo chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+
+USER root
+RUN echo "source /entrypoint.sh" >> /etc/profile
+USER $USERNAME

@@ -1,0 +1,2 @@
+CREATE DATABASE dagster;
+GRANT ALL PRIVILEGES ON DATABASE dagster TO handsfreegpt;

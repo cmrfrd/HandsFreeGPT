@@ -1,0 +1,114 @@
+version: '3'
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.dev
+    volumes:
+      - .:/workspace:Z
+    command:
+      - sleep
+      - infinity
+    platform: linux/amd64
+    env_file: .env
+    environment:
+      - ENV=local
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY_ID=minioadmin
+      - AWS_S3_ENDPOINT=http://minio:9000
+      - HANDSFREEGPT_DRIVER=postgresql+psycopg2
+      - HANDSFREEGPT_HOST=pgbouncer
+      - HANDSFREEGPT_NAME=handsfreegpt
+      - HANDSFREEGPT_PASS=handsfreegpt
+      - HANDSFREEGPT_PORT=5432
+      - HANDSFREEGPT_USER=handsfreegpt
+
+  # db:
+  #   build:
+  #     context: .
+  #     dockerfile: ./docker/Dockerfile.postgres
+  #   volumes:
+  #     - db:/var/lib/postgresql/data
+  #   environment:
+  #     - POSTGRES_DB=handsfreegpt
+  #     - POSTGRES_HOST_AUTH_METHOD=trust
+  #     - POSTGRES_PASSWORD=handsfreegpt
+  #     - POSTGRES_PORT=5432
+  #     - POSTGRES_USER=handsfreegpt
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # pgbouncer:
+  #   build:
+  #     context: .
+  #     dockerfile: ./docker/Dockerfile.pgbouncer
+  #   environment:
+  #     - IGNORE_STARTUP_PARAMETERS=options
+  #     - MAX_CLIENT_CONN=10000
+  #     - MAX_DB_CONNECTIONS=20
+  #     - MAX_USER_CONNECTIONS=20
+  #     - POSTGRES_HOST_AUTH_METHOD=trust
+  #     - DB_USER1=handsfreegpt
+  #     - DB_PASSWORD1=handsfreegpt
+  #     - DB_HOST1=db
+  #     - DB_NAME1=handsfreegpt
+
+  minio:
+    image: minio/minio
+    volumes:
+      - minio:/data
+    ports:
+      - "3001:9001"
+    command: server /data --console-address ":9001"
+
+  memgraph-mage:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.memgraph
+    entrypoint:
+      [
+        "/usr/lib/memgraph/memgraph",
+      ]
+    ports:
+      - "7687:7687"
+
+  chroma:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.chroma
+    volumes:
+      - index_data:/index_data
+    command: uvicorn chromadb.app:app --reload --workers 1 --host 0.0.0.0 --port 8000 --log-config log_config.yml
+    environment:
+      - CHROMA_DB_IMPL=clickhouse
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+    ports:
+      - 8000:8000
+    depends_on:
+      - clickhouse
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:22.9-alpine
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - CLICKHOUSE_TCP_PORT=9000
+      - CLICKHOUSE_HTTP_PORT=8123
+    ports:
+      - '8123:8123'
+      - '9000:9000'
+    volumes:
+      - clickhouse_data:/bitnami/clickhouse
+      - backups:/backups
+      - ./config/backup_disk.xml:/etc/clickhouse-server/config.d/backup_disk.xml
+      - ./config/chroma_users.xml:/etc/clickhouse-server/users.d/chroma.xml
+
+volumes:
+  db:
+  minio:
+  clickhouse_data:
+  index_data:
+  backups:
